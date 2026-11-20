@@ -23,7 +23,8 @@ class MainActivity : Activity() {
     private lateinit var menuButton: TextView
     private val gold = Color.rgb(211, 174, 91)
     private val panel = Color.rgb(17, 18, 21)
-    private val prefs by lazy { getSharedPreferences("chess_saves", MODE_PRIVATE) }\n    private var stockfish: UciEngine? = null
+    private val prefs by lazy { getSharedPreferences("chess_saves", MODE_PRIVATE) }
+    private var stockfish: UciEngine? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +87,8 @@ class MainActivity : Activity() {
         listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move").forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             when (it.title.toString()) {
-                "New game" -> confirmNewGame()\n                "Play Stockfish" -> showEngineLevels()
+                "New game" -> confirmNewGame()
+                "Play Stockfish" -> showEngineLevels()
                 "Save current game" -> saveCurrentGame()
                 "Saved games" -> showSavedGames()
                 "Replay current game" -> replayCurrentGame()
@@ -196,7 +198,21 @@ class MainActivity : Activity() {
             .setNegativeButton("Review moves", null).show().styleDialog()
     }
 
-    private fun showEngineLevels() {\n        AlertDialog.Builder(this)\n            .setTitle("CHOOSE STOCKFISH LEVEL")\n            .setItems(UciEngine.labels.toTypedArray()) { _, which ->\n                try {\n                    if (stockfish == null) stockfish = UciEngine(this)\n                    boardView.startEngineGame(stockfish!!, which)\n                    status.text = "YOU ARE WHITE · STOCKFISH ${UciEngine.labels[which].uppercase()}"\n                } catch (e: Exception) {\n                    toastDialog("Stockfish unavailable", e.message ?: "Unable to start the chess engine.")\n                }\n            }.setNegativeButton("Cancel", null).show().styleDialog()\n    }\n\n    private fun confirmNewGame() {
+    private fun showEngineLevels() {
+        AlertDialog.Builder(this)
+            .setTitle("CHOOSE STOCKFISH LEVEL")
+            .setItems(UciEngine.labels.toTypedArray()) { _, which ->
+                try {
+                    if (stockfish == null) stockfish = UciEngine(this)
+                    boardView.startEngineGame(stockfish!!, which)
+                    status.text = "YOU ARE WHITE · STOCKFISH ${UciEngine.labels[which].uppercase()}"
+                } catch (e: Exception) {
+                    toastDialog("Stockfish unavailable", e.message ?: "Unable to start the chess engine.")
+                }
+            }.setNegativeButton("Cancel", null).show().styleDialog()
+    }
+
+    private fun confirmNewGame() {
         AlertDialog.Builder(this).setTitle("Start a new game?")
             .setMessage("The current game will be cleared unless you save it first.")
             .setNegativeButton("Cancel", null)
@@ -204,7 +220,12 @@ class MainActivity : Activity() {
             .show().styleDialog()
     }
 
-    override fun onDestroy() {\n        stockfish?.close()\n        super.onDestroy()\n    }\n\n    private fun readSaves(): JSONArray = try { JSONArray(prefs.getString("games", "[]")) } catch (_: Exception) { JSONArray() }
+    override fun onDestroy() {
+        stockfish?.close()
+        super.onDestroy()
+    }
+
+    private fun readSaves(): JSONArray = try { JSONArray(prefs.getString("games", "[]")) } catch (_: Exception) { JSONArray() }
 
     private fun toastDialog(title: String, message: String) {
         AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK", null).show().styleDialog()
