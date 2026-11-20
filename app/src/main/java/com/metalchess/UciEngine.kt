@@ -36,9 +36,10 @@ class UciEngine(context: Context) {
         }
         val engineDir = File(appContext.filesDir, "stockfish/$abi")
         copyAssetDirectory("engine/$abi", engineDir)
-        val executable = File(engineDir, "stockfish")
+        // Android 10+ blocks exec() from writable app data. The binary is
+        // packaged as a native-library payload and executed from /data/app.
+        val executable = File(appContext.applicationInfo.nativeLibraryDir, "libstockfish.so")
         check(executable.exists()) { "Stockfish engine binary is missing from this APK." }
-        executable.setExecutable(true, true)
         val p = ProcessBuilder(executable.absolutePath)
             .directory(engineDir)
             .redirectErrorStream(true)
