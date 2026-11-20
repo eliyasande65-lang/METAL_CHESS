@@ -93,7 +93,7 @@ for model in sorted(MODEL_DIR.glob("*.glb")):
     camera.location = target + Vector((height * 2.4, -height * 3.2, height * 2.1))
     aim(camera, target)
     camera_data.type = "ORTHO"
-    camera_data.ortho_scale = height * 1.62
+    camera_data.ortho_scale = 1.30  # Fixed across all twelve models to preserve real Staunton proportions
     scene.camera = camera
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
