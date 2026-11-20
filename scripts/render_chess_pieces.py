@@ -67,7 +67,7 @@ for model in sorted(MODEL_DIR.glob("*.glb")):
     target = Vector((center.x, center.y, minimum.z + dimensions.z * 0.48))
 
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT" if hasattr(bpy.types, "BLENDER_EEVEE_NEXT") else "BLENDER_EEVEE"
+    scene.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
     scene.render.resolution_x = 640
     scene.render.resolution_y = 640
     scene.render.resolution_percentage = 100
@@ -98,6 +98,5 @@ for model in sorted(MODEL_DIR.glob("*.glb")):
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "Medium High Contrast"
-    scene.display.shading.light = "STUDIO"
     bpy.ops.render.render(write_still=True)
     print("Rendered " + scene.render.filepath)
