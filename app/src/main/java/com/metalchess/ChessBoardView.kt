@@ -213,11 +213,12 @@ class ChessBoardView(
     private fun requestEngineMove() {
         val activeEngine = engine ?: return
         val token = gameToken
+        val positionFen = board.fen
         engineThinking = true
         onStatus("STOCKFISH IS THINKING · ${UciEngine.labels[engineDifficulty].uppercase()}")
         Thread {
             try {
-                val uci = activeEngine.bestMove(board.fen, engineDifficulty)
+                val uci = activeEngine.bestMove(positionFen, engineDifficulty)
                 post {
                     if (token != gameToken || !engineEnabled || gameFinished) return@post
                     engineThinking = false
