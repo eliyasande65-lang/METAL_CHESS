@@ -17,6 +17,7 @@ class ChessBoardView(
     private val onGameOver: (String, List<String>) -> Unit
 ) : View(context) {
     private val board = Board()
+    init { ChessPieceRenderer.load(context) }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var selected: Square? = null
     private var flipped = false
@@ -189,7 +190,9 @@ class ChessBoardView(
         } else {
             val move = board.legalMoves().firstOrNull { it.from == selected && it.to == square }
             if (move != null) {
+                val wasCapture = board.getPiece(move.to) != Piece.NONE
                 board.doMove(move)
+                SoundEffects.play(context, wasCapture, board.isKingAttacked)
                 moves.add(move.toString())
                 positions.add(board.fen)
                 selected = null
@@ -228,7 +231,9 @@ class ChessBoardView(
                         invalidate()
                         return@post
                     }
+                    val wasCapture = board.getPiece(move.to) != Piece.NONE
                     board.doMove(move)
+                    SoundEffects.play(context, wasCapture, board.isKingAttacked)
                     moves.add(move.toString())
                     positions.add(board.fen)
                     selected = null
