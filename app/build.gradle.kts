@@ -15,6 +15,12 @@ android {
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
     }
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += "**/libstockfish.so"
+        }
+    }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
