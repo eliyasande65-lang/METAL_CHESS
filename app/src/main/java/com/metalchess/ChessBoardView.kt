@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.view.MotionEvent
 import android.view.View
 import com.github.bhlangonijr.chesslib.Board
+import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.Square
 
 class ChessBoardView(context: Context, private val onStatus: (String) -> Unit) : View(context) {
@@ -19,9 +20,12 @@ class ChessBoardView(context: Context, private val onStatus: (String) -> Unit) :
 
     fun reset() {
         board.loadFromFen(Board().fen)
-        selected = null; legalTargets = emptySet(); invalidate()
+        selected = null
+        legalTargets = emptySet()
+        invalidate()
         onStatus("White to move · New game")
     }
+
     fun flip() { flipped = !flipped; invalidate() }
 
     override fun onDraw(canvas: Canvas) {
@@ -44,28 +48,31 @@ class ChessBoardView(context: Context, private val onStatus: (String) -> Unit) :
             }
             if (square in legalTargets) {
                 paint.color = 0xAA1B7A54.toInt()
-                canvas.drawCircle(x + cell/2, y + cell/2, cell * .13f, paint)
+                canvas.drawCircle(x + cell / 2, y + cell / 2, cell * .13f, paint)
             }
-            val piece = board.getPiece(square).toString()
+            val piece = board.getPiece(square)
             val glyph = glyph(piece)
             if (glyph.isNotEmpty()) {
-                paint.color = if (piece.startsWith("W")) 0xFFF8F8F5.toInt() else 0xFF16191F.toInt()
+                val isWhite = piece.name.startsWith("WHITE_")
+                paint.color = if (isWhite) 0xFFF8F8F5.toInt() else 0xFF16191F.toInt()
                 paint.textAlign = Paint.Align.CENTER
                 paint.textSize = cell * .77f
                 paint.typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
-                canvas.drawText(glyph, x + cell/2, y + cell*.77f, paint)
+                canvas.drawText(glyph, x + cell / 2, y + cell * .77f, paint)
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = cell * .012f
-                paint.color = if (piece.startsWith("W")) 0xFF30343B.toInt() else 0xFFBFC5CE.toInt()
-                canvas.drawText(glyph, x + cell/2, y + cell*.77f, paint)
+                paint.color = if (isWhite) 0xFF30343B.toInt() else 0xFFBFC5CE.toInt()
+                canvas.drawText(glyph, x + cell / 2, y + cell * .77f, paint)
                 paint.style = Paint.Style.FILL
             }
         }
     }
 
-    private fun glyph(piece: String) = when (piece) {
-        "WK" -> "♔"; "WQ" -> "♕"; "WR" -> "♖"; "WB" -> "♗"; "WN" -> "♘"; "WP" -> "♙"
-        "BK" -> "♚"; "BQ" -> "♛"; "BR" -> "♜"; "BB" -> "♝"; "BN" -> "♞"; "BP" -> "♟"
+    private fun glyph(piece: Piece): String = when (piece) {
+        Piece.WHITE_KING -> "♔"; Piece.WHITE_QUEEN -> "♕"; Piece.WHITE_ROOK -> "♖"
+        Piece.WHITE_BISHOP -> "♗"; Piece.WHITE_KNIGHT -> "♘"; Piece.WHITE_PAWN -> "♙"
+        Piece.BLACK_KING -> "♚"; Piece.BLACK_QUEEN -> "♛"; Piece.BLACK_ROOK -> "♜"
+        Piece.BLACK_BISHOP -> "♝"; Piece.BLACK_KNIGHT -> "♞"; Piece.BLACK_PAWN -> "♟"
         else -> ""
     }
 
@@ -77,13 +84,15 @@ class ChessBoardView(context: Context, private val onStatus: (String) -> Unit) :
         val col = ((event.x - left) / (size / 8f)).toInt()
         val row = ((event.y - top) / (size / 8f)).toInt()
         if (row !in 0..7 || col !in 0..7) return true
-        val file = if (flipped) 7-col else col
-        val rank = if (flipped) row+1 else 8-row
+        val file = if (flipped) 7 - col else col
+        val rank = if (flipped) row + 1 else 8 - row
         val square = Square.valueOf("${"abcdefgh"[file]}$rank".uppercase())
-        val piece = board.getPiece(square).toString()
-        val whiteTurn = board.sideToMove.toString().startsWith("WHITE")
+        val piece = board.getPiece(square)
+        val whiteTurn = board.sideToMove.toString() == "WHITE"
+        val ownPiece = piece != Piece.NONE && piece.pieceSide.toString() == if (whiteTurn) "WHITE" else "BLACK"
+
         if (selected == null) {
-            if (piece != "NONE" && piece.startsWith(if (whiteTurn) "W" else "B")) {
+            if (ownPiece) {
                 selected = square
                 legalTargets = board.legalMoves().filter { it.from == square }.map { it.to }.toSet()
             }
@@ -91,16 +100,21 @@ class ChessBoardView(context: Context, private val onStatus: (String) -> Unit) :
             val move = board.legalMoves().firstOrNull { it.from == selected && it.to == square }
             if (move != null) {
                 board.doMove(move)
-                selected = null; legalTargets = emptySet()
+                selected = null
+                legalTargets = emptySet()
                 onStatus(when {
                     board.isMated -> "Checkmate"
+                    board.isStaleMate -> "Draw · Stalemate"
                     board.isDraw -> "Draw"
-                    else -> "${board.sideToMove} to move"
+                    else -> "${board.sideToMove} to move" + if (board.isKingAttacked) " · Check" else ""
                 })
-            } else if (piece != "NONE" && piece.startsWith(if (whiteTurn) "W" else "B")) {
+            } else if (ownPiece) {
                 selected = square
                 legalTargets = board.legalMoves().filter { it.from == square }.map { it.to }.toSet()
-            } else { selected = null; legalTargets = emptySet() }
+            } else {
+                selected = null
+                legalTargets = emptySet()
+            }
         }
         invalidate()
         return true
