@@ -33,7 +33,7 @@ jobs:
             local archive="/tmp/stockfish-$abi.tar.gz" unpack="/tmp/stockfish-$abi"
             curl -fL --retry 3 "$url" -o "$archive"
             echo "$expected  $archive" | sha256sum -c -
-            mkdir -p "$unpack"
+            mkdir -p "$unpack" "app/src/main/jniLibs/$abi"
             tar -xzf "$archive" -C "$unpack"
             local binary
             binary="$(find "$unpack" -type f -exec sh -c 'file "$1" | grep -q "ELF .* executable" && echo "$1"' _ {} \; | head -n1)"
@@ -41,11 +41,12 @@ jobs:
               binary="$(find "$unpack" -type f -name 'stockfish*' | head -n1)"
             fi
             test -n "$binary"
+            cp "$binary" "app/src/main/jniLibs/$abi/libstockfish.so"
             while IFS= read -r -d '' item; do
-              cp "$item" "app/src/main/assets/engine/$abi/$(basename "$item")"
+              if [ "$item" != "$binary" ]; then
+                cp "$item" "app/src/main/assets/engine/$abi/$(basename "$item")"
+              fi
             done < <(find "$unpack" -type f -print0)
-            cp "$binary" "app/src/main/assets/engine/$abi/stockfish"
-            chmod 755 "app/src/main/assets/engine/$abi/stockfish"
           }
           fetch_engine \
             "https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz" \
