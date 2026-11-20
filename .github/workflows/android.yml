@@ -23,6 +23,38 @@ jobs:
           accept-android-sdk-licenses: true
           packages: platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1
 
+      - name: Bundle official Stockfish 19 Android engines
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/engine/arm64-v8a app/src/main/assets/engine/armeabi-v7a
+          fetch_engine() {
+            local url="$1" expected="$2" abi="$3"
+            local archive="/tmp/stockfish-$abi.tar.gz" unpack="/tmp/stockfish-$abi"
+            curl -fL --retry 3 "$url" -o "$archive"
+            echo "$expected  $archive" | sha256sum -c -
+            mkdir -p "$unpack"
+            tar -xzf "$archive" -C "$unpack"
+            local binary
+            binary="$(find "$unpack" -type f -exec sh -c 'file "$1" | grep -q "ELF .* executable" && echo "$1"' _ {} \; | head -n1)"
+            if [ -z "$binary" ]; then
+              binary="$(find "$unpack" -type f -name 'stockfish*' | head -n1)"
+            fi
+            test -n "$binary"
+            cp -a "$unpack"/. "app/src/main/assets/engine/$abi/"
+            cp "$binary" "app/src/main/assets/engine/$abi/stockfish"
+            chmod 755 "app/src/main/assets/engine/$abi/stockfish"
+          }
+          fetch_engine \
+            "https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-arm64-universal.tar.gz" \
+            "ebb24051aa4a222b4daaf049b882ecf1163d370c128fe02316602643f4d5e426" arm64-v8a
+          fetch_engine \
+            "https://github.com/official-stockfish/Stockfish/releases/download/sf_19/stockfish-android-armv7-neon.tar.gz" \
+            "47c34963f1cdf4a6af34c1b5294f7a4e2679b3eb52698c324855af2c6486024b" armeabi-v7a
+          curl -fL https://raw.githubusercontent.com/official-stockfish/Stockfish/sf_19 Copy-Item /tmp/stockfish-license.txt || true
+          curl -fL https://raw.githubusercontent.com/official-stockfish/Stockfish/sf_19/LICENSE -o app/src/main/assets/engine/LICENSE.txt
+          printf '%s\n' 'Stockfish 19 (tag sf_19)' 'Source code: https://github.com/official-stockfish/Stockfish/tree/sf_19' 'Official release: https://github.com/official-stockfish/Stockfish/releases/tag/sf_19' > app/src/main/assets/engine/SOURCE.txt
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
