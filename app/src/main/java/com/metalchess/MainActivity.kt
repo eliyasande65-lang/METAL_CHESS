@@ -23,7 +23,7 @@ class MainActivity : Activity() {
     private lateinit var menuButton: TextView
     private val gold = Color.rgb(211, 174, 91)
     private val panel = Color.rgb(17, 18, 21)
-    private val prefs by lazy { getSharedPreferences("chess_saves", MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences("chess_saves", MODE_PRIVATE) }\n    private var stockfish: UciEngine? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,10 +83,10 @@ class MainActivity : Activity() {
 
     private fun showMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
-        listOf("New game", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move").forEach { popup.menu.add(it) }
+        listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move").forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             when (it.title.toString()) {
-                "New game" -> confirmNewGame()
+                "New game" -> confirmNewGame()\n                "Play Stockfish" -> showEngineLevels()
                 "Save current game" -> saveCurrentGame()
                 "Saved games" -> showSavedGames()
                 "Replay current game" -> replayCurrentGame()
@@ -192,19 +192,19 @@ class MainActivity : Activity() {
         body.addView(metalText(details, 12f, Color.WHITE))
         body.addView(metalText("Moves played: " + moves.size, 11f, Color.LTGRAY).apply { setPadding(0, dp(10), 0, 0) })
         AlertDialog.Builder(this).setTitle("GAME ANALYSIS").setView(body)
-            .setPositiveButton("New game") { _, _ -> boardView.reset(); status.text = "WHITE TO MOVE" }
+            .setPositiveButton("New game") { _, _ -> boardView.startLocalGame(); status.text = "WHITE TO MOVE" }
             .setNegativeButton("Review moves", null).show().styleDialog()
     }
 
-    private fun confirmNewGame() {
+    private fun showEngineLevels() {\n        AlertDialog.Builder(this)\n            .setTitle("CHOOSE STOCKFISH LEVEL")\n            .setItems(UciEngine.labels.toTypedArray()) { _, which ->\n                try {\n                    if (stockfish == null) stockfish = UciEngine(this)\n                    boardView.startEngineGame(stockfish!!, which)\n                    status.text = "YOU ARE WHITE · STOCKFISH ${UciEngine.labels[which].uppercase()}"\n                } catch (e: Exception) {\n                    toastDialog("Stockfish unavailable", e.message ?: "Unable to start the chess engine.")\n                }\n            }.setNegativeButton("Cancel", null).show().styleDialog()\n    }\n\n    private fun confirmNewGame() {
         AlertDialog.Builder(this).setTitle("Start a new game?")
             .setMessage("The current game will be cleared unless you save it first.")
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("New game") { _, _ -> boardView.reset(); status.text = "WHITE TO MOVE" }
+            .setPositiveButton("New game") { _, _ -> boardView.startLocalGame(); status.text = "WHITE TO MOVE" }
             .show().styleDialog()
     }
 
-    private fun readSaves(): JSONArray = try { JSONArray(prefs.getString("games", "[]")) } catch (_: Exception) { JSONArray() }
+    override fun onDestroy() {\n        stockfish?.close()\n        super.onDestroy()\n    }\n\n    private fun readSaves(): JSONArray = try { JSONArray(prefs.getString("games", "[]")) } catch (_: Exception) { JSONArray() }
 
     private fun toastDialog(title: String, message: String) {
         AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("OK", null).show().styleDialog()
