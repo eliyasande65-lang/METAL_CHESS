@@ -23,6 +23,12 @@ jobs:
           accept-android-sdk-licenses: true
           packages: platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1
 
+      - name: Render original 3D chessmen as transparent Android images
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+          blender --background --python scripts/render_chess_pieces.py
+
       - name: Bundle official Stockfish 19 Android engines
         shell: bash
         run: |
