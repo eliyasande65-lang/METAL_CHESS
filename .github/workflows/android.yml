@@ -41,7 +41,9 @@ jobs:
               binary="$(find "$unpack" -type f -name 'stockfish*' | head -n1)"
             fi
             test -n "$binary"
-            cp -a "$unpack"/. "app/src/main/assets/engine/$abi/"
+            while IFS= read -r -d '' item; do
+              cp "$item" "app/src/main/assets/engine/$abi/$(basename "$item")"
+            done < <(find "$unpack" -type f -print0)
             cp "$binary" "app/src/main/assets/engine/$abi/stockfish"
             chmod 755 "app/src/main/assets/engine/$abi/stockfish"
           }
