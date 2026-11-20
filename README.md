@@ -20,6 +20,8 @@ Every push to `main` triggers an Android debug build. The APK outputs are upload
 ## Current foundation
 - Legal move generation and validation through Chesslib
 - Interactive board with legal-move highlights
+- Original CC0 3D Staunton models rendered to transparent metallic piece images during CI
+- Offline synthesized piece-drop, capture and check sounds with an in-game toggle
 - Local two-player play
 - Check, checkmate and draw status
 - Board flip and new-game controls
