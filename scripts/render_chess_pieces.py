@@ -67,7 +67,15 @@ for model in sorted(MODEL_DIR.glob("*.glb")):
     target = Vector((center.x, center.y, minimum.z + dimensions.z * 0.48))
 
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 2, 0) else "BLENDER_EEVEE"
+    # Blender's render-engine identifiers differ between releases/builds.
+    # Select an engine that this exact Blender binary actually exposes.
+    available_engines = bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items.keys()
+    engine = next((name for name in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE", "BLENDER_WORKBENCH", "CYCLES")
+                   if name in available_engines), None)
+    if engine is None:
+        raise RuntimeError("No supported Blender render engine found: " + str(list(available_engines)))
+    scene.render.engine = engine
+    print("Using Blender render engine: " + engine)
     scene.render.resolution_x = 640
     scene.render.resolution_y = 640
     scene.render.resolution_percentage = 100
