@@ -9,6 +9,7 @@ import android.view.View
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.Square
+import com.github.bhlangonijr.chesslib.move.Move
 
 class ChessBoardView(
     context: Context,
@@ -222,7 +223,7 @@ class ChessBoardView(
                 post {
                     if (token != gameToken || !engineEnabled || gameFinished) return@post
                     engineThinking = false
-                    val move = if (uci.isNotEmpty()) try { board.fromUci(uci) } catch (_: Exception) { null } else null
+                    val move = if (uci.isNotEmpty()) try { Move(uci, board.sideToMove) } catch (_: Exception) { null } else null
                     if (move == null || !board.legalMoves().contains(move)) {
                         onStatus("ENGINE MOVE ERROR · START A NEW GAME")
                         invalidate()
