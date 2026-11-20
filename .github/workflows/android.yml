@@ -24,10 +24,20 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018 cmake;3.22.1
 
       - name: Render original 3D chessmen as transparent Android images
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender python3-numpy
           blender --background --python scripts/render_chess_pieces.py
+          rendered_count="$(find app/src/main/res/drawable-nodpi -maxdepth 1 -type f -name 'piece_*.png' | wc -l)"
+          echo "Rendered chess-piece images: ${rendered_count}"
+          test "${rendered_count}" -eq 12
+          for piece in king queen bishop knight rook pawn; do
+            for side in white black; do
+              test -s "app/src/main/res/drawable-nodpi/piece_${side}_${piece}.png"
+            done
+          done
 
       - name: Bundle official Stockfish 19 Android engines
         shell: bash
