@@ -1,27 +1,35 @@
 # METAL CHESS
 
-A native Android chess application focused on a premium graphite-and-metal interface.
+Native Android chess application, built with Kotlin and a small C++17 NDK core.
 
 ## Build targets
 - Android API 23+
 - ARMv7 (32-bit): `armeabi-v7a`
 - ARM64: `arm64-v8a`
 
-## Build
-Open the project in Android Studio, or run:
+## Build locally
+Install Android Studio, Android SDK 35, NDK 27.2.12479018, CMake 3.22.1 and Gradle 8.9. From the project root:
 
 ```bash
-./gradlew assembleDebug
+gradle assembleDebug
 ```
 
-GitHub Actions builds debug APKs for both supported ARM ABIs when changes are pushed to `main`.
+## GitHub Actions
+Every push to `main` triggers an Android debug build. The APK outputs are uploaded as the workflow artifact `metal-chess-debug-apks`.
 
-## Planned modules
-- Legal chess rules and move history
-- Play against the engine
-- Local two-player
-- Training and puzzles
-- Endgame practice
-- Move analysis
+## Current foundation
+- Legal move generation and validation through Chesslib
+- Interactive board with legal-move highlights
+- Local two-player play
+- Check, checkmate and draw status
+- Board flip and new-game controls
+- Android NDK C++17 library target
 
-The engine and feature set will be expanded in stages.
+## Roadmap
+- Engine opponent and difficulty settings
+- Training and tactical puzzles
+- Endgame lab with configurable material
+- Move list, analysis and PGN export
+- Premium metallic piece rendering and 3D board mode
+
+This repository is being developed incrementally. Features listed in the roadmap are not represented as complete until implemented and tested.
