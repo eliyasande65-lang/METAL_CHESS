@@ -1,5 +1,9 @@
 package com.metalchess
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.RectF
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
@@ -14,6 +18,16 @@ import com.github.bhlangonijr.chesslib.Piece
  * assets or network access are required.
  */
 object ChessPieceRenderer {
+    private val bitmaps = mutableMapOf<String, Bitmap>()
+
+    fun load(context: Context) {
+        val names = listOf("white_king", "black_king", "white_queen", "black_queen", "white_bishop", "black_bishop", "white_knight", "black_knight", "white_rook", "black_rook", "white_pawn", "black_pawn")
+        names.forEach { name ->
+            val id = context.resources.getIdentifier("piece_" + name, "drawable", context.packageName)
+            if (id != 0) BitmapFactory.decodeResource(context.resources, id)?.let { bitmaps[name] = it }
+        }
+    }
+
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -25,6 +39,13 @@ object ChessPieceRenderer {
 
     fun draw(canvas: Canvas, piece: Piece, left: Float, top: Float, size: Float) {
         if (piece == Piece.NONE) return
+        val assetName = piece.name.lowercase()
+        val bitmap = bitmaps[assetName]
+        if (bitmap != null) {
+            val dst = RectF(left, top, left + size, top + size)
+            canvas.drawBitmap(bitmap, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            return
+        }
         val white = piece.name.startsWith("WHITE_")
         val kind = piece.name.substringAfter('_')
         val save = canvas.save()
