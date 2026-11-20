@@ -84,7 +84,7 @@ class MainActivity : Activity() {
 
     private fun showMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
-        listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move").forEach { popup.menu.add(it) }
+        listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move", if (prefs.getBoolean("move_sounds", true)) "Move sounds: ON" else "Move sounds: OFF").forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             when (it.title.toString()) {
                 "New game" -> confirmNewGame()
@@ -94,6 +94,12 @@ class MainActivity : Activity() {
                 "Replay current game" -> replayCurrentGame()
                 "Flip board" -> boardView.flip()
                 "Undo move" -> boardView.undo()
+                "Move sounds: ON", "Move sounds: OFF" -> {
+                    val enabled = !prefs.getBoolean("move_sounds", true)
+                    prefs.edit().putBoolean("move_sounds", enabled).apply()
+                    SoundEffects.setEnabled(enabled)
+                    toastDialog("Move sounds", if (enabled) "Piece-drop sounds enabled." else "Piece-drop sounds disabled.")
+                }
             }
             true
         }
