@@ -23,11 +23,36 @@ class ChessBoardView(
     private val positions = mutableListOf(board.fen)
     private val moves = mutableListOf<String>()
     private var gameFinished = false
+    private var engine: UciEngine? = null
+    private var engineDifficulty = 0
+    private var engineEnabled = false
+    private var engineThinking = false
+    private var gameToken = 0
+    private val humanSide = "WHITE"
     private val light = 0xFFF0EEE8.toInt()
     private val dark = 0xFF24272D.toInt()
     private val gold = 0xFFD3AE5B.toInt()
 
+    fun startEngineGame(stockfish: UciEngine, difficulty: Int) {
+        gameToken++
+        engine = stockfish
+        engineDifficulty = difficulty.coerceIn(0, 8)
+        engineEnabled = true
+        engineThinking = false
+        reset()
+        onStatus("YOU ARE WHITE · STOCKFISH ${UciEngine.labels[engineDifficulty].uppercase()}")
+    }
+
+    fun startLocalGame() {
+        gameToken++
+        engineEnabled = false
+        engineThinking = false
+        engine = null
+        reset()
+    }
+
     fun reset() {
+        gameToken++
         board.loadFromFen(Board().fen)
         positions.clear()
         positions.add(board.fen)
@@ -35,21 +60,26 @@ class ChessBoardView(
         selected = null
         legalTargets = emptySet()
         gameFinished = false
+        engineThinking = false
         invalidate()
-        onStatus("White to move")
+        onStatus(if (engineEnabled) "YOUR MOVE · STOCKFISH ${UciEngine.labels[engineDifficulty].uppercase()}" else "White to move")
     }
 
     fun flip() { flipped = !flipped; invalidate() }
 
     fun undo() {
-        if (positions.size <= 1 || gameFinished) return
-        positions.removeAt(positions.lastIndex)
-        if (moves.isNotEmpty()) moves.removeAt(moves.lastIndex)
+        if (positions.size <= 1 || engineThinking) return
+        val plies = if (engineEnabled) minOf(2, positions.size - 1) else 1
+        repeat(plies) {
+            if (positions.size > 1) positions.removeAt(positions.lastIndex)
+            if (moves.isNotEmpty()) moves.removeAt(moves.lastIndex)
+        }
         board.loadFromFen(positions.last())
         selected = null
         legalTargets = emptySet()
         gameFinished = false
-        onStatus(board.sideToMove.toString() + " to move")
+        gameToken++
+        onStatus(if (engineEnabled) "YOUR MOVE" else board.sideToMove.toString() + " to move")
         invalidate()
     }
 
@@ -58,10 +88,15 @@ class ChessBoardView(
 
     fun loadPosition(fen: String) {
         try {
+            gameToken++
             board.loadFromFen(fen)
+            positions.clear()
+            positions.add(fen)
+            moves.clear()
             selected = null
             legalTargets = emptySet()
             gameFinished = false
+            engineThinking = false
             onStatus(board.sideToMove.toString() + " to move · Replay position")
             invalidate()
         } catch (_: Exception) { onStatus("Unable to load saved position") }
@@ -131,7 +166,8 @@ class ChessBoardView(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action != MotionEvent.ACTION_UP || gameFinished) return true
+        if (event.action != MotionEvent.ACTION_UP || gameFinished || engineThinking) return true
+        if (engineEnabled && board.sideToMove.toString() != humanSide) return true
         val size = minOf(width, height).toFloat()
         val left = (width - size) / 2f
         val top = (height - size) / 2f
@@ -153,33 +189,15 @@ class ChessBoardView(
         } else {
             val move = board.legalMoves().firstOrNull { it.from == selected && it.to == square }
             if (move != null) {
-                val notation = move.toString()
                 board.doMove(move)
-                moves.add(notation)
+                moves.add(move.toString())
                 positions.add(board.fen)
                 selected = null
                 legalTargets = emptySet()
-                when {
-                    board.isMated -> {
-                        gameFinished = true
-                        val winner = if (board.sideToMove.toString() == "WHITE") "Black wins by checkmate" else "White wins by checkmate"
-                        onStatus("Checkmate")
-                        invalidate()
-                        onGameOver(winner, moves.toList())
-                        return true
-                    }
-                    board.isStaleMate -> {
-                        gameFinished = true
-                        onStatus("Draw by stalemate")
-                        onGameOver("Draw by stalemate", moves.toList())
-                    }
-                    board.isDraw -> {
-                        gameFinished = true
-                        onStatus("Draw")
-                        onGameOver("Draw", moves.toList())
-                    }
-                    else -> onStatus(board.sideToMove.toString() + " to move" + if (board.isKingAttacked) " · Check" else "")
-                }
+                if (finishIfNeeded()) return true
+                invalidate()
+                if (engineEnabled) requestEngineMove()
+                else onStatus(board.sideToMove.toString() + " to move" + if (board.isKingAttacked) " · Check" else "")
             } else if (ownPiece) {
                 selected = square
                 legalTargets = board.legalMoves().filter { it.from == square }.map { it.to }.toSet()
@@ -189,6 +207,59 @@ class ChessBoardView(
             }
         }
         invalidate()
+        return true
+    }
+
+    private fun requestEngineMove() {
+        val activeEngine = engine ?: return
+        val token = gameToken
+        engineThinking = true
+        onStatus("STOCKFISH IS THINKING · ${UciEngine.labels[engineDifficulty].uppercase()}")
+        Thread {
+            try {
+                val uci = activeEngine.bestMove(board.fen, engineDifficulty)
+                post {
+                    if (token != gameToken || !engineEnabled || gameFinished) return@post
+                    engineThinking = false
+                    val move = if (uci.isNotEmpty()) try { board.fromUci(uci) } catch (_: Exception) { null } else null
+                    if (move == null || !board.legalMoves().contains(move)) {
+                        onStatus("ENGINE MOVE ERROR · START A NEW GAME")
+                        invalidate()
+                        return@post
+                    }
+                    board.doMove(move)
+                    moves.add(move.toString())
+                    positions.add(board.fen)
+                    selected = null
+                    legalTargets = emptySet()
+                    if (!finishIfNeeded()) {
+                        onStatus("YOUR MOVE" + if (board.isKingAttacked) " · CHECK" else "")
+                    }
+                    invalidate()
+                }
+            } catch (e: Exception) {
+                post {
+                    if (token == gameToken) {
+                        engineThinking = false
+                        onStatus("STOCKFISH ERROR · ${e.message ?: "ENGINE UNAVAILABLE"}")
+                        invalidate()
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun finishIfNeeded(): Boolean {
+        val result = when {
+            board.isMated -> if (board.sideToMove.toString() == "WHITE") "Black wins by checkmate" else "White wins by checkmate"
+            board.isStaleMate -> "Draw by stalemate"
+            board.isDraw -> "Draw"
+            else -> null
+        } ?: return false
+        gameFinished = true
+        engineThinking = false
+        onStatus(if (board.isMated) "Checkmate" else result)
+        onGameOver(result, moves.toList())
         return true
     }
 
