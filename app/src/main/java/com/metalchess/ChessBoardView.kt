@@ -111,8 +111,12 @@ class ChessBoardView(
         val cell = size / 8f
 
         paint.style = Paint.Style.FILL
-        paint.color = gold
-        canvas.drawRect(left - dp(2), top - dp(2), left + size + dp(2), top + size + dp(2), paint)
+        paint.shader = android.graphics.LinearGradient(left, top, left + size, top + size,
+            intArrayOf(0xFFFFE6A0.toInt(), gold, 0xFF75521F.toInt(), 0xFFE8C879.toInt()),
+            null, android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(left - dp(5).toFloat(), top - dp(5).toFloat(),
+            left + size + dp(5), top + size + dp(5), dp(3).toFloat(), dp(3).toFloat(), paint)
+        paint.shader = null
 
         for (row in 0..7) for (col in 0..7) {
             val file = if (flipped) 7 - col else col
@@ -120,34 +124,37 @@ class ChessBoardView(
             val square = Square.valueOf("${"abcdefgh"[file]}$rank".uppercase())
             val x = left + col * cell
             val y = top + row * cell
-            paint.color = if ((row + col) % 2 == 0) light else dark
+            // Rich, subtly textured graphite and warm ivory squares.
+            val isLight = (row + col) % 2 == 0
+            paint.shader = null
+            paint.color = if (isLight) 0xFFD8D1C2.toInt() else 0xFF343943.toInt()
             canvas.drawRect(x, y, x + cell, y + cell, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = cell * .012f
+            paint.color = if (isLight) 0x22FFFFFF else 0x22000000
+            canvas.drawRect(x + cell * .035f, y + cell * .035f, x + cell * .965f, y + cell * .965f, paint)
+            paint.style = Paint.Style.FILL
 
             if (selected == square) {
                 paint.color = 0x88D3AE5B.toInt()
                 canvas.drawRect(x, y, x + cell, y + cell, paint)
+                paint.color = 0xFFE7C77F.toInt()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = cell * .045f
+                canvas.drawRect(x + cell * .07f, y + cell * .07f, x + cell * .93f, y + cell * .93f, paint)
+                paint.style = Paint.Style.FILL
             }
             if (square in legalTargets) {
                 paint.color = 0xBBD3AE5B.toInt()
-                canvas.drawCircle(x + cell / 2, y + cell / 2, cell * .12f, paint)
+                canvas.drawCircle(x + cell / 2, y + cell / 2, cell * .105f, paint)
+                paint.color = 0x55FFFFFF
+                canvas.drawCircle(x + cell / 2, y + cell / 2, cell * .145f, paint)
             }
+
             val piece = board.getPiece(square)
-            val glyph = glyph(piece)
-            if (glyph.isNotEmpty()) {
-                val white = piece.name.startsWith("WHITE_")
-                paint.textAlign = Paint.Align.CENTER
-                paint.textSize = cell * .76f
-                paint.typeface = Typeface.create("serif", Typeface.BOLD)
-                paint.style = Paint.Style.FILL
-                paint.color = if (white) 0xFFFFFFFF.toInt() else 0xFF090A0C.toInt()
-                paint.setShadowLayer(cell * .035f, 0f, cell * .035f, if (white) 0x99000000.toInt() else 0x99D3AE5B.toInt())
-                canvas.drawText(glyph, x + cell / 2, y + cell * .77f, paint)
-                paint.clearShadowLayer()
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = cell * .012f
-                paint.color = if (white) 0xFFB9B9B5.toInt() else 0xFFE4C77F.toInt()
-                canvas.drawText(glyph, x + cell / 2, y + cell * .77f, paint)
-                paint.style = Paint.Style.FILL
+            if (piece != Piece.NONE) {
+                val inset = cell * .045f
+                ChessPieceRenderer.draw(canvas, piece, x + inset, y + inset, cell - inset * 2f)
             }
             paint.textSize = cell * .12f
             paint.typeface = Typeface.DEFAULT_BOLD
@@ -156,14 +163,6 @@ class ChessBoardView(
             if (col == 0) canvas.drawText(rank.toString(), x + cell * .04f, y + cell * .15f, paint)
             if (row == 7) canvas.drawText("abcdefgh"[file].toString(), x + cell * .86f, y + cell * .96f, paint)
         }
-    }
-
-    private fun glyph(piece: Piece): String = when (piece) {
-        Piece.WHITE_KING -> "♔"; Piece.WHITE_QUEEN -> "♕"; Piece.WHITE_ROOK -> "♖"
-        Piece.WHITE_BISHOP -> "♗"; Piece.WHITE_KNIGHT -> "♘"; Piece.WHITE_PAWN -> "♙"
-        Piece.BLACK_KING -> "♚"; Piece.BLACK_QUEEN -> "♛"; Piece.BLACK_ROOK -> "♜"
-        Piece.BLACK_BISHOP -> "♝"; Piece.BLACK_KNIGHT -> "♞"; Piece.BLACK_PAWN -> "♟"
-        else -> ""
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
