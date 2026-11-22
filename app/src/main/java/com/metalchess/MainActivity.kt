@@ -163,40 +163,63 @@ class MainActivity : Activity() {
         val fens = (0 until fensJson.length()).map { fensJson.getString(it) }
         if (fens.isEmpty()) return
         var index = 0
+        var playing = false
+        val handler = Handler(Looper.getMainLooper())
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(14), dp(20), dp(8))
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
         }
-        val counter = metalText("", 13f, gold).apply { gravity = Gravity.CENTER }
-        val moveText = metalText("", 12f, Color.LTGRAY).apply { gravity = Gravity.CENTER; setPadding(0, dp(10), 0, dp(12)) }
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val previous = actionButton("PREVIOUS") { }
-        val next = actionButton("NEXT") { }
-        fun refresh() {
-            counter.text = "POSITION " + (index + 1) + " OF " + fens.size
-            moveText.text = if (index == 0) "Starting position" else movesJson.optString(index - 1, "Move")
-            previous.isEnabled = index > 0
-            next.isEnabled = index < fens.lastIndex
+        val preview = ChessBoardView(this, {}, { _, _ -> }).apply {
+            loadPosition(fens.first())
+            setOnTouchListener { _, _ -> true }
         }
-        previous.setOnClickListener { if (index > 0) { index--; refresh() } }
-        next.setOnClickListener { if (index < fens.lastIndex) { index++; refresh() } }
-        controls.addView(previous, LinearLayout.LayoutParams(0, dp(44), 1f))
-        controls.addView(next, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(8) })
+        content.addView(preview, LinearLayout.LayoutParams(-1, dp(300)))
+        val counter = metalText("", 12f, gold).apply { gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(4)) }
+        val moveText = metalText("", 12f, Color.LTGRAY).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, dp(10)) }
+        val play = actionButton("PLAY") {}
         content.addView(counter)
         content.addView(moveText)
-        content.addView(controls)
-        refresh()
-        val dialog = AlertDialog.Builder(this).setTitle(item.optString("name", "REPLAY"))
-            .setView(content).setNegativeButton("Close", null)
-            .setPositiveButton("Load this position", null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                boardView.loadPosition(fens[index])
-                dialog.dismiss()
-            }
-            dialog.styleDialog()
+        content.addView(play, LinearLayout.LayoutParams(-1, dp(44)))
+        fun refresh() {
+            counter.text = "MOVE $index / ${fens.lastIndex}"
+            moveText.text = if (index == 0) "Starting position" else movesJson.optString(index - 1, "Move")
         }
+        lateinit var ticker: Runnable
+        ticker = Runnable {
+            if (!playing) return@Runnable
+            if (index < fens.lastIndex) {
+                index++
+                preview.loadPosition(fens[index])
+                refresh()
+                handler.postDelayed(ticker, 780L)
+            } else {
+                playing = false
+                play.text = "PLAY AGAIN"
+            }
+        }
+        play.setOnClickListener {
+            if (playing) {
+                playing = false
+                handler.removeCallbacks(ticker)
+                play.text = "PLAY"
+            } else {
+                if (index >= fens.lastIndex) {
+                    index = 0
+                    preview.loadPosition(fens[0])
+                    refresh()
+                }
+                playing = true
+                play.text = "PAUSE"
+                handler.postDelayed(ticker, 250L)
+            }
+        }
+        refresh()
+        val dialog = AlertDialog.Builder(this).setTitle(item.optString("name", "GAME REVIEW"))
+            .setView(content).setNegativeButton("Close", null).create()
+        dialog.setOnDismissListener { playing = false; handler.removeCallbacks(ticker) }
         dialog.show()
+        dialog.styleDialog()
     }
 
     private fun showAnalysis(result: String, moves: List<String>) {
