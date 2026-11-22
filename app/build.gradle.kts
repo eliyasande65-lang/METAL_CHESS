@@ -9,8 +9,8 @@ android {
         applicationId = "com.metalchess"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "2.0.0"
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
     }

@@ -18,12 +18,16 @@ import com.github.bhlangonijr.chesslib.Piece
  */
 object ChessPieceRenderer {
     private val bitmaps = mutableMapOf<String, Bitmap>()
+    private val opaqueBounds = mutableMapOf<String, android.graphics.Rect>()
 
     fun load(context: Context) {
         val names = listOf("white_king", "black_king", "white_queen", "black_queen", "white_bishop", "black_bishop", "white_knight", "black_knight", "white_rook", "black_rook", "white_pawn", "black_pawn")
         names.forEach { name ->
             val id = context.resources.getIdentifier("piece_" + name, "drawable", context.packageName)
-            if (id != 0) BitmapFactory.decodeResource(context.resources, id)?.let { bitmaps[name] = it }
+            if (id != 0) BitmapFactory.decodeResource(context.resources, id)?.let { bitmap ->
+                bitmaps[name] = bitmap
+                opaqueBounds[name] = findOpaqueBounds(bitmap)
+            }
         }
     }
 
@@ -36,19 +40,62 @@ object ChessPieceRenderer {
     private val detail = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
 
+    private fun findOpaqueBounds(bitmap: Bitmap): android.graphics.Rect {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until height) {
+            val row = y * width
+            for (x in 0 until width) {
+                if ((pixels[row + x] ushr 24) > 12) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        return if (maxX >= minX && maxY >= minY) {
+            android.graphics.Rect(minX, minY, maxX + 1, maxY + 1)
+        } else {
+            android.graphics.Rect(0, 0, width, height)
+        }
+    }
+
     fun draw(canvas: Canvas, piece: Piece, left: Float, top: Float, size: Float) {
         if (piece == Piece.NONE) return
         val assetName = piece.name.lowercase()
         val bitmap = bitmaps[assetName]
         if (bitmap != null) {
-            val wide = piece.name.contains("BISHOP") || piece.name.contains("KING") ||
+            // Crop transparent padding first, then fit the visible artwork inside the
+            // square without distorting or clipping its original proportions.
+            val source = opaqueBounds[assetName] ?: android.graphics.Rect(0, 0, bitmap.width, bitmap.height)
+            val aspect = source.width().toFloat() / source.height().coerceAtLeast(1)
+            val widePiece = piece.name.contains("BISHOP") || piece.name.contains("KING") ||
                 piece.name.contains("QUEEN") || piece.name.contains("KNIGHT")
-            val width = size * if (wide) 1.42f else 1f
-            val dst = RectF(left + (size - width) / 2f, top, left + (size + width) / 2f, top + size)
-            val save = canvas.save()
-            canvas.clipRect(left, top, left + size, top + size)
-            canvas.drawBitmap(bitmap, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-            canvas.restoreToCount(save)
+            val maxWidth = size * if (widePiece) .92f else .84f
+            val maxHeight = size * .91f
+            val targetWidth: Float
+            val targetHeight: Float
+            if (aspect >= maxWidth / maxHeight) {
+                targetWidth = maxWidth
+                targetHeight = maxWidth / aspect
+            } else {
+                targetHeight = maxHeight
+                targetWidth = maxHeight * aspect
+            }
+            val dst = RectF(
+                left + (size - targetWidth) / 2f,
+                top + (size - targetHeight) / 2f,
+                left + (size + targetWidth) / 2f,
+                top + (size + targetHeight) / 2f
+            )
+            canvas.drawBitmap(bitmap, source, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
             return
         }
         val white = piece.name.startsWith("WHITE_")
