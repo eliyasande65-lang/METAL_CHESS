@@ -18,7 +18,8 @@ import com.github.bhlangonijr.chesslib.move.Move
 class ChessBoardView(
     context: Context,
     private val onStatus: (String) -> Unit,
-    private val onGameOver: (String, List<String>) -> Unit
+    private val onGameOver: (String, List<String>) -> Unit,
+    private val onCoach: (String) -> Unit = {}
 ) : View(context) {
     private val board = Board()
     init { ChessPieceRenderer.load(context) }
@@ -42,19 +43,37 @@ class ChessBoardView(
     private var engineEnabled = false
     private var engineThinking = false
     private var gameToken = 0
-    private val humanSide = "WHITE"
+    private var humanSide = "WHITE"
+    private var coachEnabled = false
+    private var coachEngine: UciEngine? = null
+    private var coachToken = 0
+    private var coachFrom: Square? = null
+    private var coachTo: Square? = null
     private val light = 0xFFF0EEE8.toInt()
     private val dark = 0xFF24272D.toInt()
     private val gold = 0xFFD3AE5B.toInt()
 
-    fun startEngineGame(stockfish: UciEngine, difficulty: Int) {
+    fun startEngineGame(stockfish: UciEngine, difficulty: Int, playerSide: String = "WHITE") {
         gameToken++
+        humanSide = if (playerSide == "BLACK") "BLACK" else "WHITE"
+        flipped = humanSide == "BLACK"
         engine = stockfish
         engineDifficulty = difficulty.coerceIn(0, 8)
         engineEnabled = true
         engineThinking = false
         reset()
-        onStatus("YOU ARE WHITE · STOCKFISH ${UciEngine.labels[engineDifficulty].uppercase()}")
+        onStatus("YOU ARE $humanSide · STOCKFISH ${UciEngine.labels[engineDifficulty].uppercase()}")
+        if (humanSide == "BLACK") requestEngineMove()
+    }
+
+    fun setCoachMode(enabled: Boolean, analysisEngine: UciEngine?) {
+        coachEnabled = enabled
+        coachEngine = analysisEngine
+        coachToken++
+        coachFrom = null
+        coachTo = null
+        invalidate()
+        onStatus(if (enabled) "COACH MODE ON · MAKE A MOVE TO RECEIVE A TIP" else "COACH MODE OFF")
     }
 
     fun startLocalGame() {
@@ -62,6 +81,8 @@ class ChessBoardView(
         engineEnabled = false
         engineThinking = false
         engine = null
+        humanSide = "WHITE"
+        flipped = false
         reset()
     }
 
@@ -150,6 +171,15 @@ class ChessBoardView(
             canvas.drawRect(x + cell * .035f, y + cell * .035f, x + cell * .965f, y + cell * .965f, paint)
             paint.style = Paint.Style.FILL
 
+            if (square == coachFrom || square == coachTo) {
+                paint.color = if (square == coachFrom) 0x6677BDFB else 0x8877BDFB.toInt()
+                canvas.drawRect(x, y, x + cell, y + cell, paint)
+                paint.color = 0xFF77BDFB.toInt()
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = cell * .055f
+                canvas.drawRect(x + cell * .06f, y + cell * .06f, x + cell * .94f, y + cell * .94f, paint)
+                paint.style = Paint.Style.FILL
+            }
             if (selected == square) {
                 paint.color = 0x88D3AE5B.toInt()
                 canvas.drawRect(x, y, x + cell, y + cell, paint)
@@ -259,7 +289,7 @@ class ChessBoardView(
                 legalTargets = emptySet()
                 if (finishIfNeeded()) return true
                 invalidate()
-                if (engineEnabled) requestEngineMove()
+                if (engineEnabled) requestEngineMove() else if (coachEnabled) requestCoachTip()
                 else onStatus(board.sideToMove.toString() + " to move" + if (board.isKingAttacked) " · Check" else "")
             } else if (ownPiece) {
                 selected = square
@@ -271,6 +301,32 @@ class ChessBoardView(
         }
         invalidate()
         return true
+    }
+
+    private fun requestCoachTip() {
+        val activeEngine = coachEngine ?: return
+        val token = ++coachToken
+        val fen = board.fen
+        Thread {
+            try {
+                val suggestion = activeEngine.bestMove(fen, 5)
+                post {
+                    if (!coachEnabled || token != coachToken || suggestion.length < 4) return@post
+                    try {
+                        coachFrom = Square.valueOf(suggestion.substring(0, 2).uppercase())
+                        coachTo = Square.valueOf(suggestion.substring(2, 4).uppercase())
+                    } catch (_: Exception) { coachFrom = null; coachTo = null }
+                    invalidate()
+                    val target = suggestion.substring(2, 4)
+                    val reason = if (target in listOf("d4", "e4", "d5", "e5"))
+                        "This continuation contests the centre." else
+                        "This continuation improves piece activity and coordination."
+                    onCoach("COACH TIP\\nThe engine suggests ${suggestion.substring(0, 2)}–$target. $reason Study the blue highlighted squares, then try to find the idea yourself.")
+                }
+            } catch (e: Exception) {
+                post { if (token == coachToken) onCoach("Coach analysis unavailable: ${e.message ?: "engine error"}") }
+            }
+        }.start()
     }
 
     private fun requestEngineMove() {
