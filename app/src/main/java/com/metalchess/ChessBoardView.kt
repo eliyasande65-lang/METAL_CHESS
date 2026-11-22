@@ -321,7 +321,7 @@ class ChessBoardView(
                     val reason = if (target in listOf("d4", "e4", "d5", "e5"))
                         "This continuation contests the centre." else
                         "This continuation improves piece activity and coordination."
-                    onCoach("COACH TIP\\nThe engine suggests ${suggestion.substring(0, 2)}–$target. $reason Study the blue highlighted squares, then try to find the idea yourself.")
+                    onCoach("COACH TIP\nThe engine suggests ${suggestion.substring(0, 2)}–$target. $reason Study the blue highlighted squares, then try to find the idea yourself.")
                 }
             } catch (e: Exception) {
                 post { if (token == coachToken) onCoach("Coach analysis unavailable: ${e.message ?: "engine error"}") }
