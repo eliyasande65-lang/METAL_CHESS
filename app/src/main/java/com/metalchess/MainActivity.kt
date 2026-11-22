@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -35,7 +37,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(5, 6, 8))
-            setPadding(dp(14), dp(8), dp(14), dp(12))
+            setPadding(dp(6), dp(4), dp(6), dp(6))
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -44,7 +46,7 @@ class MainActivity : Activity() {
         val brand = metalText("CHESS", 23f, Color.WHITE).apply {
             letterSpacing = .24f
         }
-        toolbar.addView(brand, LinearLayout.LayoutParams(0, dp(54), 1f))
+        toolbar.addView(brand, LinearLayout.LayoutParams(0, dp(42), 1f))
         menuButton = metalText("☰", 25f, gold).apply {
             gravity = Gravity.CENTER
             background = rounded(Color.rgb(24, 25, 29), gold, 1)
@@ -55,17 +57,18 @@ class MainActivity : Activity() {
 
         status = metalText("WHITE TO MOVE", 11f, gold).apply {
             letterSpacing = .15f
-            setPadding(dp(4), dp(8), dp(4), dp(12))
+            setPadding(dp(4), dp(5), dp(4), dp(7))
         }
         root.addView(status)
 
         boardView = ChessBoardView(this,
             onStatus = { status.text = it.uppercase() },
-            onGameOver = { result, moves -> showAnalysis(result, moves) }
+            onGameOver = { result, moves -> showAnalysis(result, moves) },
+            onCoach = { message -> showCoachSpeech(message) }
         )
         val boardFrame = FrameLayout(this).apply {
             background = rounded(Color.rgb(12, 13, 16), gold, 2)
-            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setPadding(dp(2), dp(2), dp(2), dp(2))
             addView(boardView, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         }
         root.addView(boardFrame, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -73,7 +76,7 @@ class MainActivity : Activity() {
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, dp(14), 0, dp(2))
+            setPadding(0, dp(7), 0, dp(1))
         }
         footer.addView(actionButton("UNDO") { boardView.undo() }, LinearLayout.LayoutParams(0, dp(46), 1f))
         footer.addView(actionButton("FLIP") { boardView.flip() }, LinearLayout.LayoutParams(0, dp(46), 1f).apply { leftMargin = dp(8) })
@@ -84,16 +87,23 @@ class MainActivity : Activity() {
 
     private fun showMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
-        listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move", if (prefs.getBoolean("move_sounds", true)) "Move sounds: ON" else "Move sounds: OFF").forEach { popup.menu.add(it) }
+        listOf("New game", "Play Stockfish", "Save current game", "Saved games", "Replay current game", "Flip board", "Undo move", if (prefs.getBoolean("move_sounds", true)) "Move sounds: ON" else "Move sounds: OFF", if (prefs.getBoolean("coach_mode", false)) "Coach mode: ON" else "Coach mode: OFF").forEach { popup.menu.add(it) }
         popup.setOnMenuItemClickListener {
             when (it.title.toString()) {
                 "New game" -> confirmNewGame()
-                "Play Stockfish" -> showEngineLevels()
+                "Play Stockfish" -> showEngineLevels("WHITE")
                 "Save current game" -> saveCurrentGame()
                 "Saved games" -> showSavedGames()
                 "Replay current game" -> replayCurrentGame()
                 "Flip board" -> boardView.flip()
                 "Undo move" -> boardView.undo()
+                "Coach mode: ON", "Coach mode: OFF" -> {
+                    val enabled = !prefs.getBoolean("coach_mode", false)
+                    prefs.edit().putBoolean("coach_mode", enabled).apply()
+                    if (enabled && stockfish == null) stockfish = UciEngine(this)
+                    boardView.setCoachMode(enabled, if (enabled) stockfish else null)
+                    toastDialog("Coach mode", if (enabled) "Coach hints are enabled. Make a move to receive a highlighted engine suggestion." else "Coach hints are disabled.")
+                }
                 "Move sounds: ON", "Move sounds: OFF" -> {
                     val enabled = !prefs.getBoolean("move_sounds", true)
                     prefs.edit().putBoolean("move_sounds", enabled).apply()
@@ -201,17 +211,17 @@ class MainActivity : Activity() {
         body.addView(metalText("Moves played: " + moves.size, 11f, Color.LTGRAY).apply { setPadding(0, dp(10), 0, 0) })
         AlertDialog.Builder(this).setTitle("GAME ANALYSIS").setView(body)
             .setPositiveButton("New game") { _, _ -> boardView.startLocalGame(); status.text = "WHITE TO MOVE" }
-            .setNegativeButton("Review moves", null).show().styleDialog()
+            .setNegativeButton("Review game") { _, _ -> replayCurrentGame() }.show().styleDialog()
     }
 
-    private fun showEngineLevels() {
+    private fun showEngineLevels(playerSide: String = "WHITE") {
         AlertDialog.Builder(this)
             .setTitle("CHOOSE STOCKFISH LEVEL")
             .setItems(UciEngine.labels.toTypedArray()) { _, which ->
                 try {
                     if (stockfish == null) stockfish = UciEngine(this)
-                    boardView.startEngineGame(stockfish!!, which)
-                    status.text = "YOU ARE WHITE · STOCKFISH ${UciEngine.labels[which].uppercase()}"
+                    boardView.startEngineGame(stockfish!!, which, playerSide)
+                    status.text = "YOU ARE $playerSide · STOCKFISH ${UciEngine.labels[which].uppercase()}"
                 } catch (e: Exception) {
                     toastDialog("Stockfish unavailable", e.message ?: "Unable to start the chess engine.")
                 }
