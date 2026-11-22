@@ -229,10 +229,21 @@ class MainActivity : Activity() {
     }
 
     private fun confirmNewGame() {
-        AlertDialog.Builder(this).setTitle("Start a new game?")
-            .setMessage("The current game will be cleared unless you save it first.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("New game") { _, _ -> boardView.startLocalGame(); status.text = "WHITE TO MOVE" }
+        AlertDialog.Builder(this).setTitle("CHOOSE YOUR SIDE")
+            .setMessage("Start a game against Stockfish, or play locally with another person.")
+            .setItems(arrayOf("Play as White", "Play as Black", "Local two-player game")) { _, which ->
+                when (which) {
+                    0 -> showEngineLevels("WHITE")
+                    1 -> showEngineLevels("BLACK")
+                    else -> { boardView.startLocalGame(); status.text = "WHITE TO MOVE" }
+                }
+            }.setNegativeButton("Cancel", null).show().styleDialog()
+    }
+
+    private fun showCoachSpeech(message: String) {
+        AlertDialog.Builder(this).setTitle("CHESS COACH")
+            .setMessage(message)
+            .setPositiveButton("GOT IT", null)
             .show().styleDialog()
     }
 
