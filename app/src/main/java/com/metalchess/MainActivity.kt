@@ -38,8 +38,6 @@ class MainActivity : Activity() {
         appRoot = FrameLayout(this)
         showHomeScreen()
     }
-    }
-
 
     private fun showHomeScreen() {
         val scroll = ScrollView(this).apply {
