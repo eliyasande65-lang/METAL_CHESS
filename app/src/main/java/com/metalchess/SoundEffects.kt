@@ -35,7 +35,7 @@ object SoundEffects {
             val body = sin(2.0 * PI * frequency * 2.37 * t) * 0.32
             val click = sin(2.0 * PI * 1450.0 * t) * exp(-t * 95.0) * 0.20
             val value = (fundamental * 0.62 + body * 0.28 + click) * envelope
-            pcm[i] = (value.coerceIn(-1.0, 1.0) * 10500).toInt().toShort()
+            pcm[i] = (value.coerceIn(-1.0, 1.0) * 24500).toInt().toShort()
         }
         try {
             val track = AudioTrack.Builder()
@@ -50,6 +50,7 @@ object SoundEffects {
                 .setBufferSizeInBytes(pcm.size * 2)
                 .build()
             track.write(pcm, 0, pcm.size)
+            track.setVolume(1.0f)
             track.setNotificationMarkerPosition(pcm.size)
             track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
                 override fun onMarkerReached(player: AudioTrack) {
