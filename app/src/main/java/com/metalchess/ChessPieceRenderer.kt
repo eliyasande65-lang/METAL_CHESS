@@ -18,12 +18,16 @@ import com.github.bhlangonijr.chesslib.Piece
  */
 object ChessPieceRenderer {
     private val bitmaps = mutableMapOf<String, Bitmap>()
+    private val opaqueBounds = mutableMapOf<String, android.graphics.Rect>()
 
     fun load(context: Context) {
         val names = listOf("white_king", "black_king", "white_queen", "black_queen", "white_bishop", "black_bishop", "white_knight", "black_knight", "white_rook", "black_rook", "white_pawn", "black_pawn")
         names.forEach { name ->
             val id = context.resources.getIdentifier("piece_" + name, "drawable", context.packageName)
-            if (id != 0) BitmapFactory.decodeResource(context.resources, id)?.let { bitmaps[name] = it }
+            if (id != 0) BitmapFactory.decodeResource(context.resources, id)?.let { bitmap ->
+                bitmaps[name] = bitmap
+                opaqueBounds[name] = findOpaqueBounds(bitmap)
+            }
         }
     }
 
@@ -41,14 +45,30 @@ object ChessPieceRenderer {
         val assetName = piece.name.lowercase()
         val bitmap = bitmaps[assetName]
         if (bitmap != null) {
-            val wide = piece.name.contains("BISHOP") || piece.name.contains("KING") ||
+            // Crop transparent padding first, then fit the visible artwork inside the
+            // square without distorting or clipping its original proportions.
+            val source = opaqueBounds[assetName] ?: android.graphics.Rect(0, 0, bitmap.width, bitmap.height)
+            val aspect = source.width().toFloat() / source.height().coerceAtLeast(1)
+            val widePiece = piece.name.contains("BISHOP") || piece.name.contains("KING") ||
                 piece.name.contains("QUEEN") || piece.name.contains("KNIGHT")
-            val width = size * if (wide) 1.42f else 1f
-            val dst = RectF(left + (size - width) / 2f, top, left + (size + width) / 2f, top + size)
-            val save = canvas.save()
-            canvas.clipRect(left, top, left + size, top + size)
-            canvas.drawBitmap(bitmap, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-            canvas.restoreToCount(save)
+            val maxWidth = size * if (widePiece) .92f else .84f
+            val maxHeight = size * .91f
+            val targetWidth: Float
+            val targetHeight: Float
+            if (aspect >= maxWidth / maxHeight) {
+                targetWidth = maxWidth
+                targetHeight = maxWidth / aspect
+            } else {
+                targetHeight = maxHeight
+                targetWidth = maxHeight * aspect
+            }
+            val dst = RectF(
+                left + (size - targetWidth) / 2f,
+                top + (size - targetHeight) / 2f,
+                left + (size + targetWidth) / 2f,
+                top + (size + targetHeight) / 2f
+            )
+            canvas.drawBitmap(bitmap, source, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
             return
         }
         val white = piece.name.startsWith("WHITE_")
