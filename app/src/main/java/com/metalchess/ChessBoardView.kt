@@ -1,11 +1,15 @@
 package com.metalchess
 
 import android.content.Context
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import com.github.bhlangonijr.chesslib.Board
 import com.github.bhlangonijr.chesslib.Piece
 import com.github.bhlangonijr.chesslib.Square
@@ -19,6 +23,14 @@ class ChessBoardView(
     private val board = Board()
     init { ChessPieceRenderer.load(context) }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var moveAnimator: ValueAnimator? = null
+    private var animatingTo: Square? = null
+    private var animatedPiece: Piece = Piece.NONE
+    private var animFromX = 0f
+    private var animFromY = 0f
+    private var animToX = 0f
+    private var animToY = 0f
+    private var animProgress = 0f
     private var selected: Square? = null
     private var flipped = false
     private var legalTargets: Set<Square> = emptySet()
@@ -54,6 +66,8 @@ class ChessBoardView(
     }
 
     fun reset() {
+        moveAnimator?.cancel()
+        animatingTo = null
         gameToken++
         board.loadFromFen(Board().fen)
         positions.clear()
@@ -153,7 +167,7 @@ class ChessBoardView(
             }
 
             val piece = board.getPiece(square)
-            if (piece != Piece.NONE) {
+            if (piece != Piece.NONE && square != animatingTo) {
                 val inset = cell * .045f
                 ChessPieceRenderer.draw(canvas, piece, x + inset, y + inset, cell - inset * 2f)
             }
@@ -163,6 +177,50 @@ class ChessBoardView(
             paint.color = if ((row + col) % 2 == 0) dark else light
             if (col == 0) canvas.drawText(rank.toString(), x + cell * .04f, y + cell * .15f, paint)
             if (row == 7) canvas.drawText("abcdefgh"[file].toString(), x + cell * .86f, y + cell * .96f, paint)
+        }
+        if (animatingTo != null && animatedPiece != Piece.NONE) {
+            val cellSize = size / 8f
+            val x = animFromX + (animToX - animFromX) * animProgress
+            val y = animFromY + (animToY - animFromY) * animProgress
+            val pieceSize = cellSize * .91f
+            ChessPieceRenderer.draw(canvas, animatedPiece, x - pieceSize / 2f, y - pieceSize / 2f, pieceSize)
+        }
+    }
+
+    private fun animateMove(from: Square, to: Square, piece: Piece) {
+        moveAnimator?.cancel()
+        val boardSize = minOf(width, height).toFloat()
+        val left = (width - boardSize) / 2f
+        val top = (height - boardSize) / 2f
+        val cell = boardSize / 8f
+        fun center(square: Square): Pair<Float, Float> {
+            val name = square.toString().lowercase()
+            val rawFile = "abcdefgh".indexOf(name[0])
+            val rawRank = name[1].digitToInt()
+            val col = if (flipped) 7 - rawFile else rawFile
+            val row = if (flipped) rawRank - 1 else 8 - rawRank
+            return Pair(left + (col + .5f) * cell, top + (row + .5f) * cell)
+        }
+        val start = center(from)
+        val end = center(to)
+        animFromX = start.first; animFromY = start.second
+        animToX = end.first; animToY = end.second
+        animatedPiece = piece
+        animatingTo = to
+        animProgress = 0f
+        moveAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 260L
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animProgress = it.animatedValue as Float; postInvalidateOnAnimation() }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    animatingTo = null
+                    animatedPiece = Piece.NONE
+                    moveAnimator = null
+                    invalidate()
+                }
+            })
+            start()
         }
     }
 
@@ -191,7 +249,9 @@ class ChessBoardView(
             val move = board.legalMoves().firstOrNull { it.from == selected && it.to == square }
             if (move != null) {
                 val wasCapture = board.getPiece(move.to) != Piece.NONE
+                val movingPiece = board.getPiece(move.from)
                 board.doMove(move)
+                animateMove(move.from, move.to, movingPiece)
                 SoundEffects.play(context, wasCapture, board.isKingAttacked)
                 moves.add(move.toString())
                 positions.add(board.fen)
@@ -232,7 +292,9 @@ class ChessBoardView(
                         return@post
                     }
                     val wasCapture = board.getPiece(move.to) != Piece.NONE
+                    val movingPiece = board.getPiece(move.from)
                     board.doMove(move)
+                    animateMove(move.from, move.to, movingPiece)
                     SoundEffects.play(context, wasCapture, board.isKingAttacked)
                     moves.add(move.toString())
                     positions.add(board.fen)
