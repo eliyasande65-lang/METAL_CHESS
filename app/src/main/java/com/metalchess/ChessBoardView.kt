@@ -279,17 +279,19 @@ class ChessBoardView(
             val move = board.legalMoves().firstOrNull { it.from == selected && it.to == square }
             if (move != null) {
                 val wasCapture = board.getPiece(move.to) != Piece.NONE
+                val beforeMoveFen = board.fen
+                val playedUci = move.toString()
                 val movingPiece = board.getPiece(move.from)
                 board.doMove(move)
                 animateMove(move.from, move.to, movingPiece)
                 SoundEffects.play(context, wasCapture, board.isKingAttacked)
-                moves.add(move.toString())
+                moves.add(playedUci)
                 positions.add(board.fen)
                 selected = null
                 legalTargets = emptySet()
                 if (finishIfNeeded()) return true
                 invalidate()
-                if (engineEnabled) requestEngineMove() else if (coachEnabled) requestCoachTip()
+                if (engineEnabled) requestEngineMove() else if (coachEnabled) requestCoachTip(beforeMoveFen, playedUci)
                 else onStatus(board.sideToMove.toString() + " to move" + if (board.isKingAttacked) " · Check" else "")
             } else if (ownPiece) {
                 selected = square
@@ -303,25 +305,30 @@ class ChessBoardView(
         return true
     }
 
-    private fun requestCoachTip() {
+    private fun requestCoachTip(positionBeforeMove: String, playedUci: String) {
         val activeEngine = coachEngine ?: return
         val token = ++coachToken
-        val fen = board.fen
         Thread {
             try {
-                val suggestion = activeEngine.bestMove(fen, 5)
+                val suggestion = activeEngine.bestMove(positionBeforeMove, 5)
                 post {
                     if (!coachEnabled || token != coachToken || suggestion.length < 4) return@post
+                    val sameMove = suggestion == playedUci
+                    val highlighted = if (sameMove) playedUci else suggestion
                     try {
-                        coachFrom = Square.valueOf(suggestion.substring(0, 2).uppercase())
-                        coachTo = Square.valueOf(suggestion.substring(2, 4).uppercase())
+                        coachFrom = Square.valueOf(highlighted.substring(0, 2).uppercase())
+                        coachTo = Square.valueOf(highlighted.substring(2, 4).uppercase())
                     } catch (_: Exception) { coachFrom = null; coachTo = null }
                     invalidate()
                     val target = suggestion.substring(2, 4)
                     val reason = if (target in listOf("d4", "e4", "d5", "e5"))
-                        "This continuation contests the centre." else
-                        "This continuation improves piece activity and coordination."
-                    onCoach("COACH TIP\nThe engine suggests ${suggestion.substring(0, 2)}–$target. $reason Study the blue highlighted squares, then try to find the idea yourself.")
+                        "The suggested move contests the centre." else
+                        "The suggested move improves piece activity and coordination."
+                    val speech = if (sameMove)
+                        "COACH PRAISE\nGood choice! Your move matches Stockfish preferred move. $reason"
+                    else
+                        "COACH CORRECTION\nYou played $playedUci. Stockfish preferred ${suggestion.substring(0, 2)}–$target. $reason The blue squares show the engine alternative. Try to spot why it is stronger."
+                    onCoach(speech)
                 }
             } catch (e: Exception) {
                 post { if (token == coachToken) onCoach("Coach analysis unavailable: ${e.message ?: "engine error"}") }
