@@ -71,6 +71,10 @@ class MainActivity : Activity() {
             setPadding(dp(2), dp(2), dp(2), dp(2))
             addView(boardView, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         }
+        if (prefs.getBoolean("coach_mode", false)) {
+            if (stockfish == null) stockfish = UciEngine(this)
+            boardView.setCoachMode(true, stockfish)
+        }
         root.addView(boardFrame, LinearLayout.LayoutParams(-1, 0, 1f))
 
         val footer = LinearLayout(this).apply {
