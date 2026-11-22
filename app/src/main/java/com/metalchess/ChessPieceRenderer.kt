@@ -41,8 +41,14 @@ object ChessPieceRenderer {
         val assetName = piece.name.lowercase()
         val bitmap = bitmaps[assetName]
         if (bitmap != null) {
-            val dst = RectF(left, top, left + size, top + size)
+            val wide = piece.name.contains("BISHOP") || piece.name.contains("KING") ||
+                piece.name.contains("QUEEN") || piece.name.contains("KNIGHT")
+            val width = size * if (wide) 1.42f else 1f
+            val dst = RectF(left + (size - width) / 2f, top, left + (size + width) / 2f, top + size)
+            val save = canvas.save()
+            canvas.clipRect(left, top, left + size, top + size)
             canvas.drawBitmap(bitmap, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            canvas.restoreToCount(save)
             return
         }
         val white = piece.name.startsWith("WHITE_")
