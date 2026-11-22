@@ -40,6 +40,33 @@ object ChessPieceRenderer {
     private val detail = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
 
+    private fun findOpaqueBounds(bitmap: Bitmap): android.graphics.Rect {
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        var minX = width
+        var minY = height
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until height) {
+            val row = y * width
+            for (x in 0 until width) {
+                if ((pixels[row + x] ushr 24) > 12) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+        return if (maxX >= minX && maxY >= minY) {
+            android.graphics.Rect(minX, minY, maxX + 1, maxY + 1)
+        } else {
+            android.graphics.Rect(0, 0, width, height)
+        }
+    }
+
     fun draw(canvas: Canvas, piece: Piece, left: Float, top: Float, size: Float) {
         if (piece == Piece.NONE) return
         val assetName = piece.name.lowercase()
