@@ -51,8 +51,6 @@ class ChessBoardView(
     private var coachTo: Square? = null
     private val light = 0xFFF0EEE8.toInt()
     private val dark = 0xFF24272D.toInt()
-    private val gold = 0xFFD3AE5B.toInt()
-
     fun startEngineGame(stockfish: UciEngine, difficulty: Int, playerSide: String = "WHITE") {
         gameToken++
         humanSide = if (playerSide == "BLACK") "BLACK" else "WHITE"
@@ -147,13 +145,6 @@ class ChessBoardView(
         val cell = size / 8f
 
         paint.style = Paint.Style.FILL
-        paint.shader = android.graphics.LinearGradient(left, top, left + size, top + size,
-            intArrayOf(0xFFFFE6A0.toInt(), gold, 0xFF75521F.toInt(), 0xFFE8C879.toInt()),
-            null, android.graphics.Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(left - dp(5).toFloat(), top - dp(5).toFloat(),
-            left + size + dp(5), top + size + dp(5), dp(3).toFloat(), dp(3).toFloat(), paint)
-        paint.shader = null
-
         for (row in 0..7) for (col in 0..7) {
             val file = if (flipped) 7 - col else col
             val rank = if (flipped) row + 1 else 8 - row
@@ -165,11 +156,6 @@ class ChessBoardView(
             paint.shader = null
             paint.color = if (isLight) 0xFFD8D1C2.toInt() else 0xFF343943.toInt()
             canvas.drawRect(x, y, x + cell, y + cell, paint)
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = cell * .012f
-            paint.color = if (isLight) 0x22FFFFFF else 0x22000000
-            canvas.drawRect(x + cell * .035f, y + cell * .035f, x + cell * .965f, y + cell * .965f, paint)
-            paint.style = Paint.Style.FILL
 
             if (square == coachFrom || square == coachTo) {
                 paint.color = if (square == coachFrom) 0x6677BDFB else 0x8877BDFB.toInt()

@@ -23,7 +23,7 @@ class MainActivity : Activity() {
     private lateinit var boardView: ChessBoardView
     private lateinit var status: TextView
     private lateinit var menuButton: TextView
-    private val gold = Color.rgb(211, 174, 91)
+    private val gold = Color.rgb(183, 160, 113)
     private val panel = Color.rgb(17, 18, 21)
     private val prefs by lazy { getSharedPreferences("chess_saves", MODE_PRIVATE) }
     private var stockfish: UciEngine? = null
@@ -49,7 +49,8 @@ class MainActivity : Activity() {
         toolbar.addView(brand, LinearLayout.LayoutParams(0, dp(42), 1f))
         menuButton = metalText("☰", 25f, gold).apply {
             gravity = Gravity.CENTER
-            background = rounded(Color.rgb(24, 25, 29), gold, 1)
+            background = rounded(Color.rgb(24, 25, 29))
+            elevation = dp(2).toFloat()
             setOnClickListener { showMenu(it) }
         }
         toolbar.addView(menuButton, LinearLayout.LayoutParams(dp(52), dp(42)))
@@ -67,7 +68,8 @@ class MainActivity : Activity() {
             onCoach = { message -> showCoachSpeech(message) }
         )
         val boardFrame = FrameLayout(this).apply {
-            background = rounded(Color.rgb(12, 13, 16), gold, 2)
+            background = rounded(Color.rgb(12, 13, 16))
+            elevation = dp(2).toFloat()
             setPadding(dp(2), dp(2), dp(2), dp(2))
             addView(boardView, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         }
@@ -299,19 +301,19 @@ class MainActivity : Activity() {
         letterSpacing = .06f
         typeface = Typeface.create("sans-serif", Typeface.BOLD)
         setTextColor(Color.rgb(242, 226, 188))
-        background = rounded(panel, gold, 1)
+        background = rounded(panel)
+        elevation = dp(2).toFloat()
         setOnClickListener { action() }
     }
 
-    private fun rounded(fill: Int, stroke: Int, width: Int): GradientDrawable =
+    private fun rounded(fill: Int): GradientDrawable =
         GradientDrawable().apply {
             setColor(fill)
             cornerRadius = dp(9).toFloat()
-            setStroke(dp(width), stroke)
         }
 
     private fun AlertDialog.styleDialog() {
-        window?.setBackgroundDrawable(rounded(Color.rgb(20, 21, 24), gold, 1))
+        window?.setBackgroundDrawable(rounded(Color.rgb(20, 21, 24)))
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

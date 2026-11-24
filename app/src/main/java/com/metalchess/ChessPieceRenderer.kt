@@ -28,11 +28,6 @@ object ChessPieceRenderer {
     }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
-    }
     private val detail = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
 
@@ -57,23 +52,20 @@ object ChessPieceRenderer {
         canvas.translate(left, top)
         canvas.scale(size / 100f, size / 100f)
 
-        val dark = if (white) 0xFFB9B9B4.toInt() else 0xFF090B0F.toInt()
-        val mid = if (white) 0xFFF8F5E9.toInt() else 0xFF343A43.toInt()
-        val bright = if (white) 0xFFFFFFFF.toInt() else 0xFF77716A.toInt()
-        val accent = if (white) 0xFFD7D0BE.toInt() else 0xFFD6AD57.toInt()
+        val dark = if (white) 0xFFC8C4B9.toInt() else 0xFF24272D.toInt()
+        val mid = if (white) 0xFFE0DDD3.toInt() else 0xFF30343A.toInt()
+        val bright = if (white) 0xFFE8E5DC.toInt() else 0xFF41464D.toInt()
+        val accent = if (white) 0xFFB8B1A2.toInt() else 0xFF8E8676.toInt()
 
-        // Soft cast shadow and layered, slightly elliptical pedestal.
+        // A layered base and soft shadow give the matte pieces a raised look.
         fill.shader = null
-        fill.color = 0x66000000
+        fill.color = 0x44000000
         canvas.drawOval(RectF(13f, 84f, 89f, 97f), fill)
         fill.color = dark
         canvas.drawOval(RectF(12f, 78f, 88f, 94f), fill)
-        fill.shader = LinearGradient(0f, 78f, 0f, 94f, intArrayOf(bright, mid, dark), null, Shader.TileMode.CLAMP)
+        fill.shader = LinearGradient(0f, 78f, 0f, 94f, intArrayOf(mid, dark), null, Shader.TileMode.CLAMP)
         canvas.drawOval(RectF(15f, 78f, 85f, 91f), fill)
         fill.shader = null
-        edge.color = accent
-        edge.strokeWidth = 1.6f
-        canvas.drawOval(RectF(12f, 78f, 88f, 94f), edge)
         fill.color = mid
         canvas.drawOval(RectF(20f, 77f, 80f, 84f), fill)
 
@@ -87,24 +79,21 @@ object ChessPieceRenderer {
             "KING" -> king(path)
             else -> pawn(path)
         }
-        fill.shader = LinearGradient(15f, 18f, 85f, 78f, intArrayOf(bright, mid, dark), null, Shader.TileMode.CLAMP)
+        fill.shader = LinearGradient(0f, 15f, 0f, 78f, intArrayOf(bright, mid, dark), null, Shader.TileMode.CLAMP)
         fill.style = Paint.Style.FILL
-        fill.setShadowLayer(3.2f, 1.5f, 3f, 0x99000000.toInt())
+        fill.setShadowLayer(2f, 0f, 1.5f, 0x55000000)
+        val shapeSave = canvas.save()
+        val widthScale = if (kind == "PAWN") 1f else 1.22f
+        canvas.scale(widthScale, 1f, 50f, 50f)
         canvas.drawPath(path, fill)
+        canvas.restoreToCount(shapeSave)
         fill.clearShadowLayer()
         fill.shader = null
 
-        edge.color = accent
-        edge.strokeWidth = 1.8f
-        canvas.drawPath(path, edge)
-
-        // Fine metallic highlights on the lit edge.
-        edge.color = if (white) 0xCCFFFFFF.toInt() else 0x99E7C77F.toInt()
-        edge.strokeWidth = 1.15f
-        val highlight = Path(path)
-        canvas.drawPath(highlight, edge)
-
+        val detailSave = canvas.save()
+        canvas.scale(widthScale, 1f, 50f, 50f)
         drawDetails(canvas, kind, white, accent, bright)
+        canvas.restoreToCount(detailSave)
         canvas.restoreToCount(save)
     }
 
@@ -172,7 +161,7 @@ object ChessPieceRenderer {
     private fun drawDetails(canvas: Canvas, kind: String, white: Boolean, accent: Int, bright: Int) {
         detail.shader = null
         detail.style = Paint.Style.STROKE
-        detail.strokeWidth = 1.5f
+        detail.strokeWidth = 1.6f
         detail.color = accent
         when (kind) {
             "KING" -> {
